@@ -11,3 +11,8 @@ export const loginAPI = new APIBase({
 export const projectsAPI = new APIBase({
   baseURL: `${BASE_API_URL}/projects/`,
 });
+
+// Calendar API
+export const calendarAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/calendar/`,
+});

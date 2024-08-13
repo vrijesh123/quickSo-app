@@ -4,7 +4,7 @@ import 'react-native-get-random-values';
 import React, { useEffect, useState } from 'react';
 import { Alert, View, TextInput, Button, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import axios from 'axios';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { v4 as uuidv4 } from 'uuid';
 import _ from 'lodash';
 import * as Location from 'expo-location';
@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 // import { useNavigation } from 'expo-router';
 
 const LoginScreen = () => {
-  // const navigation = useNavigation();
+  const userData = useSelector((state) => state?.user); // Destructuring state for clarity
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,11 +50,14 @@ const LoginScreen = () => {
 
       const res = await loginAPI.post(``, submitData);
 
+      console.log('ressss', res)
+
       if (res) {
         const token = res?.data?.jwt;
 
         // Save the token to local storage
         await AsyncStorage.setItem('userToken', token);
+        await AsyncStorage.setItem('userData', res?.data?.user?.username);
 
         dispatch(setClientUid(clientUid));
 
@@ -70,7 +73,7 @@ const LoginScreen = () => {
         Alert.alert('Success', 'Logged in successfully!', [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Dashboard'), // Assuming 'Dashboard' is the route name for your dashboard screen
+            onPress: () => navigation.navigate('Projects'), // Assuming 'Dashboard' is the route name for your dashboard screen
           },
         ]);
       } else {
@@ -102,11 +105,13 @@ const LoginScreen = () => {
     getPermissions();
   }, []);
 
-  // useEffect(() => {
-  //   navigation.setOptions({
-  //     headerShown: false,
-  //   })
-  // }, [])
+  useEffect(() => {
+    //if userData.user has data then redirect to Projects page 
+    if (userData?.user) {
+      navigation.navigate('Projects');
+    }
+  }, [userData?.user])
+
 
   return (
     <View style={styles.main}>

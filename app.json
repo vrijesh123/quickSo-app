@@ -9,9 +9,7 @@
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./app/assets/quickso.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
-      "paddingHorizontal": 20
+      "resizeMode": "contain"
     },
     "ios": {
       "supportsTablet": true,

@@ -181,11 +181,11 @@ export default class APIBase {
   }
 
   async setToken(token) {
-    await AsyncStorage.setItem(this.config.tokenKey, token);
+    await AsyncStorage.setItem("access_token", token);
   }
 
   async removeToken() {
-    await AsyncStorage.removeItem(this.config.tokenKey);
+    await AsyncStorage.removeItem("access_token");
   }
 
   // Utility method to format dates
