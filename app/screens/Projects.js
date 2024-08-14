@@ -4,16 +4,25 @@ import { projectsAPI } from '../../apis/api';
 import { commonStyles } from '../styles/styles';
 import { useSelector } from 'react-redux';
 import { clearStorage } from '../utils';
+import { useNavigation } from '@react-navigation/native';
 
 const Projects = () => {
     const userData = useSelector((state) => state?.user); // Destructuring state for clarity
+    const navigation = useNavigation();
 
     const [data, setData] = useState([]);
 
     const fetchData = useCallback(async () => {
         try {
             const res = await projectsAPI.get('?populate=%2A');
-            setData(res?.data || []); // Handling possible undefined values
+            const project_data = res?.data?.map(data => ({
+                id: data.id,
+                name: data?.attributes?.name,
+                location: data?.attributes?.location,
+            }))
+
+            setData(project_data || []); // Handling possible undefined values
+
         } catch (error) {
             console.error('Failed to fetch projects:', error); // Better error handling
         }
@@ -25,24 +34,13 @@ const Projects = () => {
 
 
     const renderItem = ({ item }) => {
-        const { name } = item.attributes;
-        const handlePress = async () => {
-            const url = `https://example.com/project/${item.id}`;
-            try {
-                const supported = await Linking.canOpenURL(url);
-                if (supported) {
-                    await Linking.openURL(url);
-                } else {
-                    console.warn(`Cannot open URL: ${url}`);
-                }
-            } catch (error) {
-                console.error('Failed to open URL:', error);
-            }
+        const handlePress = () => {
+            navigation.navigate('DailyAttendance', { project: item });
         };
 
         return (
             <View style={styles.item}>
-                <Text style={styles.itemText}>{name}</Text>
+                <Text style={styles.itemText}>{item?.name}</Text>
                 <TouchableOpacity onPress={handlePress}>
                     <Text style={styles.linkText}>View Details</Text>
                 </TouchableOpacity>

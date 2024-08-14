@@ -5,22 +5,26 @@
     "scheme": "quickso",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./app/assets/icon.png",
+    "icon": "./app/assets/adaptive-icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./app/assets/quickso.png",
+      "image": "./app/assets/splashScreen.png",
       "resizeMode": "contain"
     },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "This app uses your location to provide personalized services."
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to track your attendance while the app is in use.",
+        "NSLocationAlwaysUsageDescription": "This app uses your location in the background to track your attendance even when the app is closed.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to track your attendance while the app is in use or in the background."
       }
     },
     "android": {
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./app/assets/adaptive-icon.png",
@@ -32,4 +36,3 @@
     }
   }
 }
-

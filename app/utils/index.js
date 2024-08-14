@@ -8,3 +8,8 @@ export const clearStorage = async () => {
         console.error('Failed to clear AsyncStorage:', error);
     }
 };
+
+export const timeToString = (time) => {
+    const date = new Date(time);
+    return date.toISOString().split('T')[0];
+};

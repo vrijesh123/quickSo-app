@@ -5,6 +5,7 @@ import moment from 'moment';
 import { calendarAPI } from '../../apis/api';
 import RenderHTML from 'react-native-render-html';
 import { useWindowDimensions } from 'react-native';
+import { commonStyles } from '../styles/styles';
 
 const timeToString = (time) => {
   const date = new Date(time);
@@ -51,7 +52,7 @@ const DailyTasks = () => {
   const renderEmptyDate = () => {
     return (
       <View style={styles.emptyDate}>
-        <Text style={styles.emptyDateText}>No Data Available</Text>
+        <Text>This is empty date!</Text>
       </View>
     );
   };
@@ -87,7 +88,9 @@ const DailyTasks = () => {
         <ActivityIndicator size="large" color="#2E4494" />
       ) : (
         <>
-          <Text style={styles.titleDate}>{moment(selectedDate).format('Do MMMM YYYY')}
+          <Text style={commonStyles.title}>Daily Tasks</Text>
+
+          <Text style={commonStyles.titleDate}>{moment(selectedDate).format('Do MMMM YYYY')}
           </Text>
 
           <Agenda
@@ -100,6 +103,8 @@ const DailyTasks = () => {
             items={groupedTasks}
             renderItem={renderItem}
             renderEmptyDate={renderEmptyDate}
+            showClosingKnob={true}
+            showOnlySelectedDayItems={true}
             theme={agendaTheme}
           />
         </>
@@ -128,12 +133,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 20,
-  },
-  titleDate: {
-    fontSize: 24,
-    fontFamily: 'Inter_400Regular',
-    color: '#000',
+    paddingHorizontal: 20,
   },
   emptyDate: {
     padding: 15,

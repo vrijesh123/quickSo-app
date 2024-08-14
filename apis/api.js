@@ -7,6 +7,11 @@ export const loginAPI = new APIBase({
   baseURL: `${BASE_API_URL}/app-auth/login/`,
 });
 
+// logout api
+export const logoutAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/app-auth/log-out`,
+});
+
 // Projects API
 export const projectsAPI = new APIBase({
   baseURL: `${BASE_API_URL}/projects/`,
@@ -15,4 +20,9 @@ export const projectsAPI = new APIBase({
 // Calendar API
 export const calendarAPI = new APIBase({
   baseURL: `${BASE_API_URL}/calendar/`,
+});
+
+// Attendance API
+export const attendanceAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/attendances/`,
 });

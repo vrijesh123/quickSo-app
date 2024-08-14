@@ -21,10 +21,7 @@ const userSlice = createSlice({
       state.clientUid = action.payload;
     },
     logoutUser: (state) => {
-      state.user = null;
-      state.clientUid = null;
-      state.token = null;
-      state.location = null;
+      return initialState; // Reset the state to initial values
     },
   },
 });

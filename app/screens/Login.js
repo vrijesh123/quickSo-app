@@ -1,17 +1,21 @@
 // screens/LoginScreen.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-get-random-values';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, View, TextInput, Button, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { v4 as uuidv4 } from 'uuid';
 import _ from 'lodash';
 import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 import { setClientUid, loginUser } from '../reducers/userSlice';  // Adjust path as needed
-import { loginAPI } from '../../apis/api';
+import { loginAPI, projectsAPI } from '../../apis/api';
 import { useNavigation } from '@react-navigation/native';
-// import { useNavigation } from 'expo-router';
+
+
+const LOCATION_TASK_NAME = 'background-location-task';
+const GEOFENCE_RADIUS_METERS = 100; // Adjust the radius as needed
 
 const LoginScreen = () => {
   const userData = useSelector((state) => state?.user); // Destructuring state for clarity
@@ -24,13 +28,51 @@ const LoginScreen = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
 
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await projectsAPI.get('?populate=%2A');
+      const project_data = res?.data?.map(data => ({
+        id: data.id,
+        name: data?.attributes?.name,
+        location: data?.attributes?.location,
+      }));
+
+      // Store project data in AsyncStorage for background task access
+      await AsyncStorage.setItem('projects', JSON.stringify(project_data));
+
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+    }
+  }, []);
+
+  const startBackgroundLocationTracking = async () => {
+    const { status } = await Location.requestBackgroundPermissionsAsync();
+    console.log('startBackgroundLocationTracking', status);
+
+    if (status === 'granted') {
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 1, // in meters
+        deferredUpdatesInterval: 1000, // in milliseconds
+        foregroundService: {
+          notificationTitle: 'QuickSo is using your location',
+          notificationBody: 'Your location is being used to track your attendance.',
+          notificationColor: '#FF0000', // Optional: Change the notification color
+        },
+      });
+
+    } else {
+      Alert.alert('Permission required', 'Please grant background location permissions.');
+    }
+  };
+
+
   const onFinish = async () => {
     try {
       setIsLoading(true);
 
       if (!userLocation) {
         Alert.alert('Error', 'Please allow Location access.');
-
         return;
       }
       const clientUid = uuidv4();
@@ -41,16 +83,7 @@ const LoginScreen = () => {
         client_uid: clientUid,
       };
 
-      if (!_.isEmpty(userLocation)) {
-        submitData["location"] = {
-          ...userLocation,
-          uid: uuidv4(),
-        };
-      }
-
       const res = await loginAPI.post(``, submitData);
-
-      console.log('ressss', res)
 
       if (res) {
         const token = res?.data?.jwt;
@@ -60,7 +93,6 @@ const LoginScreen = () => {
         await AsyncStorage.setItem('userData', res?.data?.user?.username);
 
         dispatch(setClientUid(clientUid));
-
         dispatch(
           loginUser({
             user: res?.data?.user,
@@ -69,21 +101,22 @@ const LoginScreen = () => {
           })
         );
 
-        // Navigate to the next screen or show a success message
+        // Fetch projects and start background tracking after login
+        await fetchData();
+        await startBackgroundLocationTracking();
+
         Alert.alert('Success', 'Logged in successfully!', [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Projects'), // Assuming 'Dashboard' is the route name for your dashboard screen
+            onPress: () => navigation.navigate('Projects'),
           },
         ]);
       } else {
-        // Handle login failure
         Alert.alert('Error', 'Login failed. Please try again.');
       }
     } catch (error) {
-      // Handle errors
       Alert.alert('Error', 'An error occurred. Please try again.');
-      console.log('error', error)
+      console.log('error', error);
     } finally {
       setIsLoading(false);
     }

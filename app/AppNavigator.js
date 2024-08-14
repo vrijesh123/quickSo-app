@@ -7,7 +7,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Projects from "./screens/Projects";
 import { Text, Image, TouchableOpacity, View, StatusBar, Button, StyleSheet } from "react-native";
 import DailyTasks from "./screens/DailyTasks";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import DailyAttendance from "./screens/DailyAttendance";
+import { logoutAPI } from "../apis/api";
+import { logoutUser } from "./reducers/userSlice";
+import Toast from "react-native-toast-message";
 
 const Drawer = createDrawerNavigator();
 
@@ -48,6 +52,11 @@ export default function AppNavigator() {
             >
                 <Drawer.Screen name="Projects" component={Projects} options={{ title: 'Project' }} />
                 <Drawer.Screen name="DailyTasks" component={DailyTasks} options={{ title: 'Daily Tasks' }} />
+                <Drawer.Screen
+                    name="DailyAttendance"
+                    component={DailyAttendance}
+                    options={{ title: 'Daily Attendance' }} />
+
                 {!userData?.user && (
                     <Drawer.Screen
                         name="Login"
@@ -61,7 +70,44 @@ export default function AppNavigator() {
 }
 
 const CustomDrawerContent = (props) => {
+    const dispatch = useDispatch();
     const userData = useSelector((state) => state?.user); // Destructuring state for clarity
+
+    const handleLogout = async () => {
+        try {
+            // Call the logout API
+            const res = await logoutAPI.post('', {
+                uid: props.userData?.user?.uid
+            });
+
+            // Clear AsyncStorage
+            await AsyncStorage.clear();
+
+            // Dispatch the logout action to clear the Redux store
+            dispatch(logoutUser());
+
+            // Show a toast message for successful logout
+            Toast.show({
+                type: 'success',
+                text1: 'Logged out successfully',
+                position: 'bottom',
+            });
+
+            // Delay the navigation to allow the toast message to be shown
+            setTimeout(() => {
+                props.navigation.navigate('Login');
+            }, 1000); // 1 second delay
+
+        } catch (error) {
+            // Handle the error if needed
+            Toast.show({
+                type: 'error',
+                text1: 'Logout failed',
+                text2: 'Please try again later.',
+                position: 'bottom',
+            });
+        }
+    };
 
     return (
         <View style={styles.drawerContent}>
@@ -70,17 +116,24 @@ const CustomDrawerContent = (props) => {
 
             {/* Add your navigation items */}
             <View style={styles.menuItems}>
-                {props.state.routes.map((route, index) => (
-                    <TouchableOpacity
-                        key={route.key}
-                        onPress={() => props.navigation.navigate(route.name)}
-                    >
-                        <Text style={styles.menuItem}>
-                            {route.name.replace(/([A-Z])/g, ' $1').trim()}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+                {props.state.routes
+                    .filter(route => route.name !== "DailyAttendance") // Filter out the DailyAttendance route
+                    .map((route, index) => (
+                        <TouchableOpacity
+                            key={route.key}
+                            onPress={() => props.navigation.navigate(route.name)}
+                        >
+                            <Text style={styles.menuItem}>
+                                {route.name.replace(/([A-Z])/g, ' $1').trim()}
+                            </Text>
+                        </TouchableOpacity>
+                    ))
+                }
             </View>
+            {/* Add the Logout button */}
+            <TouchableOpacity onPress={handleLogout}>
+                <Text style={styles.logoutButton}>Logout</Text>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -147,4 +200,10 @@ const styles = StyleSheet.create({
     logo: {
         width: 150,
     },
+    logoutButton: {
+        fontSize: 16,
+        paddingVertical: 10,
+        fontFamily: 'Inter_400Regular',
+        color: 'red'
+    }
 });
