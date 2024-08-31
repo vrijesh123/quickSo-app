@@ -104,7 +104,6 @@ const DailyAttendance = ({ route }) => {
         );
     }
 
-    console.log('dailyyyy', data)
 
     return (
         <SafeAreaView style={commonStyles.container}>

@@ -5,12 +5,32 @@ import { commonStyles } from '../styles/styles';
 import { useSelector } from 'react-redux';
 import { clearStorage } from '../utils';
 import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
+
 
 const Projects = () => {
     const userData = useSelector((state) => state?.user); // Destructuring state for clarity
     const navigation = useNavigation();
 
     const [data, setData] = useState([]);
+    const [location, setLocation] = useState(null);
+
+    useEffect(() => {
+        const watchLocation = async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            console.log('cordsssssssssss', status);
+
+            if (status !== 'granted') {
+                console.log('Permission to access location was denied');
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync({});
+            setLocation(location.coords);
+        };
+
+        watchLocation();
+    }, []);
 
     const fetchData = useCallback(async () => {
         try {
@@ -48,7 +68,7 @@ const Projects = () => {
         );
     };
 
-    console.log('projects', data)
+    console.log('cordsssssssssss loooooo', userData)
 
     return (
         <SafeAreaView style={commonStyles.container}>
@@ -56,6 +76,16 @@ const Projects = () => {
                 <Text style={styles.userTitle}>
                     Welcome, <Text style={styles.username}>{userData?.user?.username}</Text>
                 </Text>
+                <Text style={styles.heading}>Current Location:</Text>
+                {location ? (
+                    <View>
+                        <Text>Latitude: {location.latitude}</Text>
+                        <Text>Longitude: {location.longitude}</Text>
+                        <Text>Accuracy: {location.accuracy} meters</Text>
+                    </View>
+                ) : (
+                    <Text>Fetching location...</Text>
+                )}
             </View>
             <Text style={commonStyles.title}>Projects</Text>
             <FlatList

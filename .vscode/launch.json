@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Expo App",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}",
+            "args": [
+                "start"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "EXPO_USE_DEV_SERVER": "true"
+            },
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+                "expo"
+            ]
+        }
+    ]
+}

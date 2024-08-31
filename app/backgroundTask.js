@@ -1,24 +1,28 @@
-// App.js or a dedicated file like backgroundTask.js
-
 import * as TaskManager from 'expo-task-manager';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { attendanceAPI } from '../apis/api';
 
 const LOCATION_TASK_NAME = 'background-location-task';
-const GEOFENCE_RADIUS_METERS = 100;
+const GEOFENCE_RADIUS_METERS = 10;
+
+// This object will keep track of the user's entry times by project ID
+let entryTimes = {};
 
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
+    console.log('geoooo locccc', data);
+
     if (error) {
-        console.error(error);
+        console.log('geoooo errrrr', error);
         return;
     }
-    if (data) {
+    if (data && data.locations && data.locations.length > 0) {
         const { locations } = data;
         const currentLocation = locations[0];
 
         // Retrieve the stored projects from AsyncStorage
-        const projects = JSON.parse(await AsyncStorage.getItem('projects'));
-        if (projects && projects.length > 0) {
+        const projects = JSON.parse(await AsyncStorage.getItem('projects') || '[]');
+        if (Array.isArray(projects) && projects.length > 0) {
             projects.forEach(project => {
                 const { latitude, longitude } = project.location.data.attributes.coordinates[0];
                 const distance = getDistanceFromLatLonInMeters(
@@ -28,8 +32,29 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
                     longitude
                 );
 
+                const projectId = project.id;
+                const currentTime = new Date();
+
                 if (distance <= GEOFENCE_RADIUS_METERS) {
-                    triggerGeofenceEvent(project);
+                    // User is within the geofence area
+                    if (!entryTimes[projectId]) {
+                        // User just entered the geofence
+                        entryTimes[projectId] = currentTime;
+                        console.log(`User entered project ${project.name} at ${entryTimes[projectId]}`);
+                    }
+                } else {
+                    // User is outside the geofence area
+                    if (entryTimes[projectId]) {
+                        // User just exited the geofence
+                        const inTime = entryTimes[projectId];
+                        const outTime = currentTime;
+
+                        // Trigger the exit event
+                        triggerGeofenceEvent(project, inTime, outTime);
+
+                        // Remove the entry time for this project
+                        delete entryTimes[projectId];
+                    }
                 }
             });
         }
@@ -52,17 +77,18 @@ const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
     return distance;
 };
 
-const triggerGeofenceEvent = async (project) => {
+const triggerGeofenceEvent = async (project, inTime, outTime) => {
     try {
-        // Call your API here
-        // const response = await axios.post('YOUR_API_ENDPOINT', {
-        //     project_id: project.id,
-        //     location_name: project.name,
-        //     timestamp: new Date().toISOString(),
-        // });
+        // Make the API call with in_time and out_time
+        const response = await attendanceAPI.post('', {
+            project_id: project.id,
+            location: project.location.data.id,
+            in_time: inTime.toISOString(),
+            out_time: outTime.toISOString(),
+        });
 
-        console.log('Geofence event triggered for project:', project);
-        // console.log('API response:', response.data);
+        console.log(`Geofence event for project ${project.name}: In at ${inTime}, Out at ${outTime}`);
+        console.log('API response:', response);
     } catch (error) {
         console.error('Error triggering geofence event:', error);
     }

@@ -22,6 +22,17 @@ export const calendarAPI = new APIBase({
   baseURL: `${BASE_API_URL}/calendar/`,
 });
 
+// Employee API
+export const employeeAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/employees/`,
+});
+
+// Tasks API
+export const tasksAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/tasks/`,
+});
+
+
 // Attendance API
 export const attendanceAPI = new APIBase({
   baseURL: `${BASE_API_URL}/attendances/`,

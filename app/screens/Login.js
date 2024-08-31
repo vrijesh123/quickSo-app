@@ -12,6 +12,7 @@ import * as TaskManager from 'expo-task-manager';
 import { setClientUid, loginUser } from '../reducers/userSlice';  // Adjust path as needed
 import { loginAPI, projectsAPI } from '../../apis/api';
 import { useNavigation } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
 
 
 const LOCATION_TASK_NAME = 'background-location-task';
@@ -50,7 +51,7 @@ const LoginScreen = () => {
     console.log('startBackgroundLocationTracking', status);
 
     if (status === 'granted') {
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+      const locRes = await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.High,
         distanceInterval: 1, // in meters
         deferredUpdatesInterval: 1000, // in milliseconds
@@ -60,6 +61,8 @@ const LoginScreen = () => {
           notificationColor: '#FF0000', // Optional: Change the notification color
         },
       });
+
+      console.log('location ressss', locRes)
 
     } else {
       Alert.alert('Permission required', 'Please grant background location permissions.');
@@ -84,6 +87,19 @@ const LoginScreen = () => {
       };
 
       const res = await loginAPI.post(``, submitData);
+
+      console.log('ressssss', res)
+
+      if (res && res.data.user.user_type !== 'Employee') {
+        Toast.show({
+          type: 'error',
+          text1: 'Only Employee can login',
+          text2: 'Login Failed!',
+          position: 'bottom',
+        });
+
+        return;
+      }
 
       if (res) {
         const token = res?.data?.jwt;
@@ -144,6 +160,8 @@ const LoginScreen = () => {
       navigation.navigate('Projects');
     }
   }, [userData?.user])
+
+  console.log('user', userLocation)
 
 
   return (
