@@ -11,12 +11,23 @@
       "image": "./app/assets/splashScreen.png",
       "resizeMode": "contain"
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app uses your location to track your attendance while the app is in use.",
         "NSLocationAlwaysUsageDescription": "This app uses your location in the background to track your attendance even when the app is closed.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to track your attendance while the app is in use or in the background."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to track your attendance while the app is in use or in the background.",
+        "NSPhotoLibraryUsageDescription": "Photo Permissions",
+        "NSCameraUsageDescription": "Camera Permissions",
+        "NSMicrophoneUsageDescription": "Microphone Permissions"
       }
     },
     "android": {
