@@ -1,6 +1,6 @@
 import APIBase from "../api_base/apiBase";
 
-const BASE_API_URL = 'https://uat-api.quickso.in/api';
+const BASE_API_URL = "https://uat-api.quickso.in/api";
 
 // Login API
 export const loginAPI = new APIBase({
@@ -32,8 +32,12 @@ export const tasksAPI = new APIBase({
   baseURL: `${BASE_API_URL}/tasks/`,
 });
 
-
 // Attendance API
 export const attendanceAPI = new APIBase({
   baseURL: `${BASE_API_URL}/attendances/`,
+});
+
+// Daily Report API
+export const dailyReportAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/daily-reports/`,
 });

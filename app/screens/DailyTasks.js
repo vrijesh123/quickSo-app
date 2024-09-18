@@ -8,10 +8,16 @@ import {
   TextInput,
   ScrollView,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import { Agenda } from "react-native-calendars";
 import moment from "moment";
-import { calendarAPI, employeeAPI, tasksAPI } from "../../apis/api";
+import {
+  calendarAPI,
+  dailyReportAPI,
+  employeeAPI,
+  tasksAPI,
+} from "../../apis/api";
 import RenderHTML from "react-native-render-html";
 import { useWindowDimensions } from "react-native";
 import Modal from "react-native-modal";
@@ -19,8 +25,12 @@ import { Picker } from "@react-native-picker/picker";
 import { commonStyles } from "../styles/styles";
 import { useSelector } from "react-redux";
 import qs from "qs";
+import { v4 as uuidv4 } from "uuid";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import DeleteIcon from "../assets/DeleteIcon";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import Toast from "react-native-toast-message";
 
 const timeToString = (time) => {
   const date = new Date(time);
@@ -49,6 +59,32 @@ const DailyTasks = () => {
   const [selectedEmployeee, setselectedEmployeee] = useState(null);
 
   const [tasks, setTasks] = useState([]);
+  const [items, setItems] = useState([]);
+
+  // Function to add new item
+  const addItem = () => {
+    const newItem = {
+      id: uuidv4(),
+      issue: "",
+      risk: "",
+      mitigation: "",
+      notes: "",
+    };
+    setItems([...items, newItem]);
+  };
+
+  // Function to delete an item
+  const deleteItem = (id) => {
+    setItems(items.filter((item) => item.id !== id));
+  };
+
+  // Function to update an item
+  const updateItem = (id, field, value) => {
+    const updatedItems = items.map((item) =>
+      item.id === id ? { ...item, [field]: value } : item
+    );
+    setItems(updatedItems);
+  };
 
   const [formState, setFormState] = useState({
     employee: "",
@@ -63,6 +99,8 @@ const DailyTasks = () => {
 
   const onChange = (index, event, selectedDate) => {
     setShowPicker(false); // Close the picker after selecting a date
+
+    console.log("closeddddd", selectedDate, index);
     if (selectedDate) {
       setSelectedDate(selectedDate);
       handleInputChange(
@@ -217,18 +255,74 @@ const DailyTasks = () => {
 
   const handleSubmit = async () => {
     // Handle the form submission here
+    //   {
+    //     "employee": 28,
+    //     "date": "2024-09-06T06:29:43.284Z",
+    //     "attached_photo": null,
+    //     "details": "<p>dsd dsvdsc</p>",
+    //     "uid": "4f40c636-4062-4b87-86d1-14d651e7f536",
+    //     "tasks": [
+    //         {
+    //             "id": 25,
+    //             "finished_date": "2025-03-19T18:30:00.000Z",
+    //             "completion_percentage": 20,
+    //             "completed": "No",
+    //             "notes": "cewmc kdvew"
+    //         }
+    //     ],
+    //     "issues": [
+    //         {
+    //             "id": "8b1de561-3b59-41eb-95a8-acf112461181",
+    //             "issue": "fcewvcew",
+    //             "risk": "fwdfewf",
+    //             "mitigation": "fdfdwfew",
+    //             "notes": "cdscdsfd"
+    //         }
+    //     ]
+    // }
+
+    const daily_tasks = tasks?.map((task) => ({
+      id: task?.id,
+      finished_date: task?.finished_date ?? new Date(),
+      completion_percentage: task?.completion_percentage ?? 0,
+      completed: task?.completed ?? "No",
+      notes: task?.notes ?? "",
+    }));
     try {
       // Submit formState to your API
-      console.log("Form data:", formState);
-      // Example: await calendarAPI.post('/reports', formState);
+      const data = {
+        employee: selectedEmployeee?.id,
+        date: formState?.date,
+        attached_photo: formState?.attached_photo,
+        details: formState?.details,
+        tasks: daily_tasks,
+        issues: items,
+        uid: uuidv4(),
+      };
+      console.log("Daily Report Form data:", data);
+
+      const res = await dailyReportAPI.post("", { data });
+
+      if (res?.data) {
+        Toast.show({
+          type: "success",
+          text1: "Daily Report Submitted",
+          position: "bottom",
+        });
+      }
     } catch (error) {
       console.error("Failed to submit report:", error);
+
+      Toast.show({
+        type: "error",
+        text1: "Something Went Wrong",
+        text2: { error },
+        position: "bottom",
+      });
     } finally {
       setModalVisible(false);
     }
   };
-
-  console.log("formmmmmm", tasks);
 
   return (
     <View style={styles.container}>
@@ -347,7 +441,11 @@ const DailyTasks = () => {
                         <View style={styles.cell}>
                           <Button
                             onPress={showDatePicker}
-                            title={selectedDate ? selectedDate?.toString() : ""}
+                            title={
+                              selectedDate
+                                ? moment(selectedDate).format("DD-MM-YYYY")
+                                : ""
+                            }
                           />
                         </View>
 
@@ -396,14 +494,78 @@ const DailyTasks = () => {
                   </View>
                 </ScrollView>
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="Unique ID"
-                  value={formState.uid}
-                  onChangeText={(text) => handleFormChange("uid", text)}
-                />
-
                 {/* Add more form fields for tasks and issues as needed */}
+
+                <View style={styles.heading}>
+                  <Text style={styles.flex1}>
+                    Project Risks, Issues, and Mitigation Plans
+                  </Text>
+                  <View style={styles.flex1}>
+                    <Button title="New Item" onPress={addItem} />
+                  </View>
+                </View>
+
+                <ScrollView horizontal>
+                  <View style={styles.tableContainer}>
+                    <View style={styles.tableHeader}>
+                      <Text style={styles.idCell}>No</Text>
+                      <Text style={styles.headerCell}>Project Issue</Text>
+                      <Text style={styles.headerCell}>Risk</Text>
+                      <Text style={styles.headerCell}>Mitigation</Text>
+                      <Text style={styles.headerCell}>Notes</Text>
+                      <Text style={styles.headerCell}>Actions</Text>
+                    </View>
+
+                    {items?.map((item, index) => (
+                      <View key={index} style={styles.tableRow}>
+                        <Text style={styles.smallCell}>{index + 1}</Text>
+                        <TextInput
+                          style={styles.cell}
+                          placeholder="Enter project issue"
+                          value={item.issue}
+                          onChangeText={(text) =>
+                            updateItem(item.id, "issue", text)
+                          }
+                        />
+                        <TextInput
+                          style={styles.cell}
+                          placeholder="Enter risk"
+                          value={item.risk}
+                          onChangeText={(text) =>
+                            updateItem(item.id, "risk", text)
+                          }
+                        />
+                        <TextInput
+                          style={styles.cell}
+                          placeholder="Enter mitigation"
+                          value={item.mitigation}
+                          onChangeText={(text) =>
+                            updateItem(item.id, "mitigation", text)
+                          }
+                        />
+                        <TextInput
+                          style={styles.cell}
+                          placeholder="Enter notes"
+                          value={item.notes}
+                          onChangeText={(text) =>
+                            updateItem(item.id, "notes", text)
+                          }
+                        />
+                        <TouchableOpacity
+                          onPress={() => deleteItem(item.id)}
+                          style={{ padding: 10 }}
+                        >
+                          <AntDesign
+                            style={styles.deleteButton}
+                            name="delete"
+                            size={20}
+                            color="white"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
 
                 <Button title="Submit Report" onPress={handleSubmit} />
               </ScrollView>
@@ -437,6 +599,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     paddingHorizontal: 20,
   },
+  flex1: {
+    flex: 1,
+  },
+  deleteButton: {
+    backgroundColor: "red",
+    padding: 5,
+    borderRadius: 3,
+  },
   emptyDate: {
     padding: 15,
     justifyContent: "center",
@@ -452,6 +622,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     flexDirection: "row",
+    gap: 20,
     marginBottom: 20,
   },
   modalContent: {
