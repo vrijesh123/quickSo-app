@@ -15,7 +15,9 @@ const DailyAttendance = ({ route }) => {
     const fetchData = useCallback(async () => {
         try {
             const res = await attendanceAPI.get('?populate=%2A');
-            const attendance_data = res?.data?.filter(data => data?.attributes?.location?.data?.id === project?.location?.data?.id);
+            const attendance_data = res?.data?.filter(
+                data => data?.attributes?.location?.data?.id === project?.location?.data?.id
+            );
 
             // Transform the data to match the format expected by the Agenda component
             const formattedData = attendance_data.reduce((acc, curr) => {
@@ -36,14 +38,13 @@ const DailyAttendance = ({ route }) => {
 
             setData(formattedData);
             setLoading(false);
-
         } catch (error) {
             console.error('Failed to fetch projects:', error);
             setLoading(false);
         }
     }, [project?.location?.data?.id]);
 
-    const handleDayPress = useCallback((day) => {
+    const handleDayPress = useCallback(day => {
         setSelectedDate(day.dateString);
     }, []);
 
@@ -54,13 +55,12 @@ const DailyAttendance = ({ route }) => {
     const renderEmptyDate = () => {
         return (
             <View style={styles.emptyDate}>
-                <Text>This is empty date!</Text>
+                <Text>No attendance records for this date.</Text>
             </View>
         );
     };
 
     const renderItem = useCallback((item, firstItemInDay) => {
-        // Extract time portion from in_time and out_time
         const inTime = item?.in_time ? item.in_time.split('.')[0] : null;
         const outTime = item?.out_time ? item.out_time.split('.')[0] : null;
 
@@ -73,7 +73,7 @@ const DailyAttendance = ({ route }) => {
                     marginTop: firstItemInDay ? 30 : 0,
                     backgroundColor: '#FFFF',
                     marginRight: 10,
-                    marginBottom: 5
+                    marginBottom: 5,
                 }}
             >
                 <Text style={{ fontSize: 14, fontWeight: '500', color: '#5f5f5f' }}>
@@ -83,18 +83,35 @@ const DailyAttendance = ({ route }) => {
                     {item?.location}
                 </Text>
                 <Text style={{ fontSize: 14, fontWeight: '500', color: '#5f5f5f' }}>
-                    Check in - <Text style={{ color: '#CF6C58' }}>
+                    Check in -{' '}
+                    <Text style={{ color: '#CF6C58' }}>
                         {inTime ? moment(inTime, 'HH:mm:ss').format('hh:mm A') : 'N/A'}
                     </Text>
                 </Text>
                 <Text style={{ fontSize: 14, fontWeight: '500', color: '#5f5f5f' }}>
-                    Check out - <Text style={{ color: '#CF6C58' }}>
+                    Check out -{' '}
+                    <Text style={{ color: '#CF6C58' }}>
                         {outTime ? moment(outTime, 'HH:mm:ss').format('hh:mm A') : 'N/A'}
                     </Text>
                 </Text>
             </View>
         );
     }, []);
+
+    const loadItemsForMonth = useCallback(day => {
+        const newItems = {};
+        for (let i = -15; i < 85; i++) {
+            const time = day.timestamp + i * 24 * 60 * 60 * 1000;
+            const strTime = moment(time).format('YYYY-MM-DD');
+
+            if (!data[strTime]) {
+                newItems[strTime] = [];
+            } else {
+                newItems[strTime] = data[strTime];
+            }
+        }
+        setData(prevData => ({ ...prevData, ...newItems }));
+    }, [data]);
 
     if (loading) {
         return (
@@ -104,23 +121,24 @@ const DailyAttendance = ({ route }) => {
         );
     }
 
-
     return (
         <SafeAreaView style={commonStyles.container}>
             <Text style={commonStyles.title}>Daily Attendance</Text>
-
-            <Text style={commonStyles.titleDate}>{moment(selectedDate).format('Do MMMM YYYY')}</Text>
+            <Text style={commonStyles.titleDate}>
+                {moment(selectedDate).format('Do MMMM YYYY')}
+            </Text>
             <Agenda
                 items={data}
                 renderItem={renderItem}
-                // selected={timeToString(Date.now())}
-                selected={Object.keys(data || {})[0]}
+                selected={selectedDate}
+                onDayPress={handleDayPress}
                 showTodayButton
                 showClosingKnob={true}
                 showOnlySelectedDayItems={true}
                 renderEmptyDate={renderEmptyDate}
                 theme={agendaTheme}
                 sectionStyle={styles.section}
+                loadItemsForMonth={loadItemsForMonth}
             />
         </SafeAreaView>
     );
@@ -154,7 +172,14 @@ const styles = StyleSheet.create({
     },
     section: {
         backgroundColor: 'blue',
-        padding: 30
+        padding: 30,
+    },
+    emptyDate: {
+        padding: 15,
+        marginTop: 30,
+        backgroundColor: '#FFFF',
+        marginRight: 10,
+        marginBottom: 5,
     },
     header: {
         marginBottom: 10,

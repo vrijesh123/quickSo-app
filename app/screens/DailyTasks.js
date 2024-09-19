@@ -142,8 +142,6 @@ const DailyTasks = () => {
         if (currentEmployee) {
           setselectedEmployeee(currentEmployee);
         }
-      } else {
-        setselectedEmployeee(empRes?.data?.[0]);
       }
 
     } catch (error) {
@@ -394,7 +392,7 @@ const DailyTasks = () => {
     }
   };
 
-  console.log('Daily Taskkkkkkk', tasks)
+  console.log('Daily Taskkkkkkk', selectedEmployeee)
 
   return (
     <View style={styles.container}>

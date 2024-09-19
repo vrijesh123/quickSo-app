@@ -57,13 +57,12 @@ export default function AppNavigator() {
                     component={DailyAttendance}
                     options={{ title: 'Daily Attendance' }} />
 
-                {!userData?.user && (
-                    <Drawer.Screen
-                        name="Login"
-                        component={LoginScreen}
-                        options={{ headerShown: false }}
-                    />
-                )}
+                <Drawer.Screen
+                    name="Login"
+                    component={LoginScreen}
+                    options={{ headerShown: false }}
+                />
+
             </Drawer.Navigator>
         </NavigationContainer>
     );
@@ -80,11 +79,11 @@ const CustomDrawerContent = (props) => {
                 uid: props.userData?.user?.uid
             });
 
-            // Clear AsyncStorage
-            await AsyncStorage.clear();
-
             // Dispatch the logout action to clear the Redux store
             dispatch(logoutUser());
+
+            // Clear AsyncStorage
+            await AsyncStorage.clear();
 
             // Show a toast message for successful logout
             Toast.show({
@@ -96,7 +95,7 @@ const CustomDrawerContent = (props) => {
             // Delay the navigation to allow the toast message to be shown
             setTimeout(() => {
                 props.navigation.navigate('Login');
-            }, 1000); // 1 second delay
+            }, 10); // 1 second delay
 
         } catch (error) {
             // Handle the error if needed
@@ -117,7 +116,7 @@ const CustomDrawerContent = (props) => {
             {/* Add your navigation items */}
             <View style={styles.menuItems}>
                 {props.state.routes
-                    .filter(route => route.name !== "DailyAttendance") // Filter out the DailyAttendance route
+                    .filter(route => route.name !== "DailyAttendance" && route.name !== "Login") // Filter out the DailyAttendance route
                     .map((route, index) => (
                         <TouchableOpacity
                             key={route.key}
