@@ -176,10 +176,9 @@ const LoginScreen = () => {
     <View style={styles.main}>
       <Image source={require("../assets/quickso.png")} style={styles.img} />
       <TextInput
-        placeholder="Email"
+        placeholder="Username"
         value={email}
         onChangeText={setEmail}
-        keyboardType="email-address"
         autoCapitalize="none"
         style={styles.input}
         required

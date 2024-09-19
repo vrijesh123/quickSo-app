@@ -41,3 +41,11 @@ export const attendanceAPI = new APIBase({
 export const dailyReportAPI = new APIBase({
   baseURL: `${BASE_API_URL}/daily-reports/`,
 });
+
+// Daily Report API
+export const dailyReportImageAPI = new APIBase({
+  baseURL: `${BASE_API_URL}/upload/`,
+  defaultHeaders: {
+    'Content-Type': 'multipart/form-data'
+  }, // Important for file uploads
+});

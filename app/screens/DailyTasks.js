@@ -15,6 +15,7 @@ import moment from "moment";
 import {
   calendarAPI,
   dailyReportAPI,
+  dailyReportImageAPI,
   employeeAPI,
   tasksAPI,
 } from "../../apis/api";
@@ -31,6 +32,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import DeleteIcon from "../assets/DeleteIcon";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Toast from "react-native-toast-message";
+import * as FileSystem from 'expo-file-system';
 
 const timeToString = (time) => {
   const date = new Date(time);
@@ -92,27 +94,29 @@ const DailyTasks = () => {
     attached_photo: null,
     details: "",
     uid: "",
-    tasks: [],
-    issues: [],
   });
-  const [showPicker, setShowPicker] = useState(false);
 
-  const onChange = (index, event, selectedDate) => {
-    setShowPicker(false); // Close the picker after selecting a date
+  const [showPicker, setShowPicker] = useState([]);
 
-    console.log("closeddddd", selectedDate, index);
-    if (selectedDate) {
-      setSelectedDate(selectedDate);
+  const onChange = (index, date) => {
+    // Close the specific picker by updating the state
+    const updatedShowPicker = [...showPicker];
+    updatedShowPicker[index] = false;
+    setShowPicker(updatedShowPicker); // Close the picker after selecting a date
+
+    if (date) {
       handleInputChange(
-        selectedDate.toISOString().split("T")[0],
+        date, // Format date to YYYY-MM-DD
         index,
-        "finished_date"
+        'finished_date' // Assuming you're updating the 'finished_date' field
       );
     }
   };
 
-  const showDatePicker = () => {
-    setShowPicker(true);
+  const showDatePicker = (index) => {
+    const updatedShowPicker = [...showPicker];
+    updatedShowPicker[index] = true; // Open the picker for the specific task
+    setShowPicker(updatedShowPicker);
   };
 
   const fetchData = async () => {
@@ -130,13 +134,18 @@ const DailyTasks = () => {
       // Set employees data
       setEmployees(empRes);
 
-      const currentEmployee = empRes?.data?.find(
-        (emp) => emp.attributes.uid === userData.user.uid
-      );
+      if (!userData?.user?.is_admin) {
+        const currentEmployee = empRes?.data?.find(
+          (emp) => emp.attributes.uid === userData.user.uid
+        );
 
-      if (currentEmployee) {
-        setselectedEmployeee(currentEmployee);
+        if (currentEmployee) {
+          setselectedEmployeee(currentEmployee);
+        }
+      } else {
+        setselectedEmployeee(empRes?.data?.[0]);
       }
+
     } catch (error) {
       // More descriptive error handling
       console.error("Failed to fetch data:", error);
@@ -156,6 +165,15 @@ const DailyTasks = () => {
     }
   }, [selectedEmployeee]);
 
+  const isInToday = (startDate, endDate) => {
+    let todayStartValue = moment()?.startOf("day")?.valueOf();
+    let todayEndValue = moment()?.endOf("day")?.valueOf();
+    let startDateValue = moment(startDate)?.startOf("day")?.valueOf();
+    let endDateValue = moment(endDate)?.endOf("day")?.valueOf();
+
+    return todayStartValue >= startDateValue && todayEndValue <= endDateValue;
+  };
+
   const fetchTasks = async () => {
     try {
       // Define the query object
@@ -165,9 +183,7 @@ const DailyTasks = () => {
           status: {
             $ne: "Completed",
           },
-          type: {
-            $ne: "Task",
-          },
+
         },
       };
 
@@ -177,8 +193,30 @@ const DailyTasks = () => {
       // Make the API call with the serialized query string
       const res = await tasksAPI.get(`?${queryString}`);
 
-      // Update your state with the fetched tasks
-      setTasks(res?.data);
+      if (res?.data) {
+        let newTasks = [];
+
+        res?.data?.forEach((item) => {
+          if (
+            isInToday(item?.attributes?.start_date, item?.attributes?.end_date)
+          ) {
+            newTasks.push({
+              ...item?.attributes,
+              id: item?.id,
+              finished_date: new Date(item?.attributes?.end_date),
+              completion_percentage: 0,
+              completed: "No",
+              notes: "",
+              value: item?.id,
+              label: item?.attributes?.name,
+            });
+
+          }
+        });
+
+        setTasks(newTasks);
+      }
+
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
     }
@@ -189,8 +227,17 @@ const DailyTasks = () => {
   }, []);
 
   const handleInputChange = (value, index, field) => {
-    const newTasks = [...tasks];
+    const newTasks = [...tasks]; // Create a copy of the tasks array
+
+    // Update the specific field for the task at the given index
     newTasks[index][field] = value;
+
+    // If the field being updated is 'completion_percentage' and it's 100, set 'completed' to 'Yes'
+    if (field === 'completion_percentage' && parseInt(value) === 100) {
+      newTasks[index].completed = 'Yes'; // Set completed to "Yes"
+    }
+
+    // Update the tasks state with the modified array
     setTasks(newTasks);
   };
 
@@ -199,6 +246,47 @@ const DailyTasks = () => {
       ...prevState,
       [name]: value,
     }));
+  };
+
+  const submitImage = async (imageUri) => {
+    // Convert the image URI to a binary format
+    const fileInfo = await FileSystem.getInfoAsync(imageUri);
+
+    if (!fileInfo.exists) {
+      Alert.alert("File not found", "The selected file does not exist.");
+      return;
+    }
+
+    let formData = new FormData();
+
+    // Extract the file extension from the URI
+    const fileName = imageUri.split('/').pop(); // Gets the file name from the URI
+    const fileType = fileName.split('.').pop(); // Extract the file type (e.g., jpg, png)
+
+    // Append the binary file to the FormData
+    formData.append('files', {
+      uri: imageUri,  // The URI of the image
+      name: fileName, // The name of the image
+      type: `image/${fileType}`, // The type of the image based on its extension
+    });
+
+
+    try {
+      // Make a POST request to upload the image
+      let response = await dailyReportImageAPI.post('', formData)
+
+      if (response?.length > 0) {
+        // Assuming the API returns an 'id' in the response
+        const imageId = response?.[0]?.id;
+
+        // Store the returned 'id' in 'attached_photo'
+        handleFormChange('attached_photo', imageId);
+
+      }
+    } catch (error) {
+      console.error(error);
+
+    }
   };
 
   const pickImage = async () => {
@@ -210,10 +298,8 @@ const DailyTasks = () => {
       quality: 1,
     });
 
-    console.log(result);
-
     if (!result.canceled) {
-      handleFormChange("attached_photo", result.assets[0].uri);
+      submitImage(result.assets[0].uri); // Call the image upload function
     }
   };
 
@@ -254,32 +340,6 @@ const DailyTasks = () => {
   );
 
   const handleSubmit = async () => {
-    // Handle the form submission here
-    //   {
-    //     "employee": 28,
-    //     "date": "2024-09-06T06:29:43.284Z",
-    //     "attached_photo": null,
-    //     "details": "<p>dsd dsvdsc</p>",
-    //     "uid": "4f40c636-4062-4b87-86d1-14d651e7f536",
-    //     "tasks": [
-    //         {
-    //             "id": 25,
-    //             "finished_date": "2025-03-19T18:30:00.000Z",
-    //             "completion_percentage": 20,
-    //             "completed": "No",
-    //             "notes": "cewmc kdvew"
-    //         }
-    //     ],
-    //     "issues": [
-    //         {
-    //             "id": "8b1de561-3b59-41eb-95a8-acf112461181",
-    //             "issue": "fcewvcew",
-    //             "risk": "fwdfewf",
-    //             "mitigation": "fdfdwfew",
-    //             "notes": "cdscdsfd"
-    //         }
-    //     ]
-    // }
 
     const daily_tasks = tasks?.map((task) => ({
       id: task?.id,
@@ -304,6 +364,16 @@ const DailyTasks = () => {
       const res = await dailyReportAPI.post("", { data });
 
       if (res?.data) {
+        setTasks([]);
+        setItems([]);
+        setFormState({
+          employee: "",
+          date: moment(new Date()).format("YYYY-MM-DD"),
+          attached_photo: null,
+          details: "",
+          uid: "",
+        });
+
         Toast.show({
           type: "success",
           text1: "Daily Report Submitted",
@@ -323,6 +393,8 @@ const DailyTasks = () => {
       setModalVisible(false);
     }
   };
+
+  console.log('Daily Taskkkkkkk', tasks)
 
   return (
     <View style={styles.container}>
@@ -370,27 +442,37 @@ const DailyTasks = () => {
               <ScrollView>
                 <Text style={styles.modalTitle}>Add Daily Report</Text>
 
-                {/* <Picker
-                  selectedValue={selectedEmployeee?.id}
-                  style={styles.picker}
-                  editable={false}
-                >
-                  {employees?.data?.map((employee) => (
-                    <Picker.Item
-                      key={employee.id}
-                      label={`${employee.attributes.first_name} ${employee.attributes.last_name}`}
-                      value={employee.id}
-                    />
-                  ))}
-                </Picker> */}
 
                 <Text style={styles.label}>Employee</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Employee"
-                  value={`${selectedEmployeee?.attributes?.first_name} ${selectedEmployeee?.attributes?.last_name}`}
-                  editable={false}
-                />
+
+                {userData?.user?.is_admin ? (
+
+                  <Picker
+                    selectedValue={selectedEmployeee?.id}  // The current selected employee ID
+                    style={styles.picker}
+                    onValueChange={(itemValue, itemIndex) => {
+                      const selected = employees?.data?.find(emp => emp.id == itemValue);
+                      setselectedEmployeee(selected); // Set the selected employee object
+                    }}
+                    editable={false} // If you want to prevent manual edits, this can be useful
+                  >
+                    {employees?.data?.map((employee) => (
+                      <Picker.Item
+                        key={employee.id}
+                        label={`${employee.attributes.first_name} ${employee.attributes.last_name}`}
+                        value={employee.id}
+                      />
+                    ))}
+                  </Picker>
+
+                ) : (
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Employee"
+                    value={`${selectedEmployeee?.attributes?.first_name} ${selectedEmployeee?.attributes?.last_name}`}
+                    editable={false}
+                  />
+                )}
 
                 <Text style={styles.label}>Date</Text>
                 <TextInput
@@ -402,12 +484,6 @@ const DailyTasks = () => {
 
                 <View>
                   <Button title="Choose File" onPress={pickImage} />
-                  {formState?.attached_photo && (
-                    <Image
-                      source={{ uri: formState?.attached_photo }}
-                      style={styles.image}
-                    />
-                  )}
                 </View>
 
                 <ScrollView horizontal>
@@ -429,33 +505,33 @@ const DailyTasks = () => {
                       <View key={task.id} style={styles.tableRow}>
                         <Text style={styles.smallCell}>{task.id}</Text>
                         <Text style={styles.cell}>
-                          {task?.attributes?.name}
+                          {task?.name}
                         </Text>
                         <Text style={styles.cell}>
-                          {task?.attributes?.start_date}
+                          {task?.start_date}
                         </Text>
                         <Text style={styles.cell}>
-                          {task?.attributes?.end_date}
+                          {task?.end_date}
                         </Text>
                         {/* Button to trigger DatePicker */}
                         <View style={styles.cell}>
                           <Button
-                            onPress={showDatePicker}
+                            onPress={() => showDatePicker(index)} // Open picker for this specific task
                             title={
-                              selectedDate
-                                ? moment(selectedDate).format("DD-MM-YYYY")
-                                : ""
+                              task?.finished_date
+                                ? moment(task?.finished_date).format('YYYY-MM-DD') // Format the selected date
+                                : moment(new Date()).format('YYYY-MM-DD')
                             }
                           />
                         </View>
 
                         {/* Show DateTimePicker when triggered */}
-                        {showPicker && (
+                        {showPicker[index] && (
                           <DateTimePicker
-                            value={selectedDate}
+                            value={task?.finished_date || new Date()} // Default to the selected date or current date
                             mode="date"
                             display="default"
-                            onChange={(e) => onChange(index, e, e.target.value)}
+                            onChange={(event, date) => onChange(index, date)} // Pass index to manage state per task
                           />
                         )}
                         <TextInput
@@ -474,13 +550,11 @@ const DailyTasks = () => {
                         <Picker
                           selectedValue={task.completed}
                           style={styles.cell}
-                          onValueChange={(value) =>
-                            handleInputChange(value, index, "completed")
-                          }
                         >
                           <Picker.Item label="No" value="No" />
                           <Picker.Item label="Yes" value="Yes" />
                         </Picker>
+
                         <TextInput
                           style={styles.cell}
                           placeholder="Enter notes"
