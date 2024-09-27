@@ -93,7 +93,8 @@ const DailyTasks = () => {
     date: moment(new Date()).format("YYYY-MM-DD"),
     attached_photo: null,
     details: "",
-    uid: "",
+    timesheet: 0,
+
   });
 
   const [showPicker, setShowPicker] = useState([]);
@@ -246,7 +247,7 @@ const DailyTasks = () => {
     }));
   };
 
-  const submitImage = async (imageUri) => {
+  const submitImage = async (imageUri, index) => {
     // Convert the image URI to a binary format
     const fileInfo = await FileSystem.getInfoAsync(imageUri);
 
@@ -278,7 +279,7 @@ const DailyTasks = () => {
         const imageId = response?.[0]?.id;
 
         // Store the returned 'id' in 'attached_photo'
-        handleFormChange('attached_photo', imageId);
+        handleInputChange(imageId, index, "image");
 
       }
     } catch (error) {
@@ -287,7 +288,7 @@ const DailyTasks = () => {
     }
   };
 
-  const pickImage = async () => {
+  const pickImage = async (index) => {
     // No permissions request is necessary for launching the image library
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -297,7 +298,7 @@ const DailyTasks = () => {
     });
 
     if (!result.canceled) {
-      submitImage(result.assets[0].uri); // Call the image upload function
+      submitImage(result.assets[0].uri, index); // Call the image upload function
     }
   };
 
@@ -345,6 +346,7 @@ const DailyTasks = () => {
       completion_percentage: task?.completion_percentage ?? 0,
       completed: task?.completed ?? "No",
       notes: task?.notes ?? "",
+      image: task?.image ?? null
     }));
     try {
       // Submit formState to your API
@@ -353,6 +355,7 @@ const DailyTasks = () => {
         date: formState?.date,
         attached_photo: formState?.attached_photo,
         details: formState?.details,
+        timesheet: formState?.timesheet,
         tasks: daily_tasks,
         issues: items,
         uid: uuidv4(),
@@ -392,7 +395,7 @@ const DailyTasks = () => {
     }
   };
 
-  console.log('Daily Taskkkkkkk', selectedEmployeee)
+  console.log('Daily Taskkkkkkk', tasks)
 
   return (
     <View style={styles.container}>
@@ -480,9 +483,24 @@ const DailyTasks = () => {
                   editable={false} // Make the input field non-editable
                 />
 
+                <Text style={styles.label}>Timesheet</Text>
+
+                <TextInput
+                  style={styles.cell}
+                  placeholder="0"
+                  value={formState?.timesheet}
+                  onChangeText={(value) =>
+                    handleFormChange(
+                      "timesheet",
+                      value
+                    )
+                  }
+                  keyboardType="numeric"
+                />
+                {/* 
                 <View>
                   <Button title="Choose File" onPress={pickImage} />
-                </View>
+                </View> */}
 
                 <ScrollView horizontal>
                   <View style={styles.tableContainer}>
@@ -497,6 +515,7 @@ const DailyTasks = () => {
                       </Text>
                       <Text style={styles.headerCell}>Completed?</Text>
                       <Text style={styles.headerCell}>Notes</Text>
+                      <Text style={styles.headerCell}>Attached Image</Text>
                     </View>
 
                     {tasks?.map((task, index) => (
@@ -561,6 +580,10 @@ const DailyTasks = () => {
                             handleInputChange(value, index, "notes")
                           }
                         />
+
+                        <View style={styles.cell}>
+                          <Button title="Choose File" onPress={() => pickImage(index, "image")} />
+                        </View>
                       </View>
                     ))}
                   </View>

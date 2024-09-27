@@ -62,13 +62,17 @@ const LoginScreen = () => {
         {
           accuracy: Location.Accuracy.High,
           distanceInterval: 1, // in meters
-          deferredUpdatesInterval: 1000, // in milliseconds
+          // deferredUpdatesInterval: 1000, // in milliseconds
+          deferredUpdatesIntervalMillis: 1000,
           foregroundService: {
             notificationTitle: "QuickSo is using your location",
             notificationBody:
               "Your location is being used to track your attendance.",
             notificationColor: "#FF0000", // Optional: Change the notification color
           },
+          // Pass the projects data
+          showsBackgroundLocationIndicator: true,
+          projectData: JSON.parse(await AsyncStorage.getItem('projects') || '[]'), // Add this line
         }
       );
 
@@ -148,18 +152,34 @@ const LoginScreen = () => {
   };
 
   useEffect(() => {
+    // const getPermissions = async () => {
+    //   let { status } = await Location.requestForegroundPermissionsAsync();
+    //   if (status !== "granted") {
+    //     console.log("Please grant location permissions");
+    //     return;
+    //   }
+
+    //   let currentLocation = await Location.getCurrentPositionAsync({});
+    //   setUserLocation(currentLocation);
+    // };
+
     const getPermissions = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.log("Please grant location permissions");
+      let { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      if (foregroundStatus !== 'granted') {
+        console.log('Please grant location permissions');
+        return;
+      }
+
+      let { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+      if (backgroundStatus !== 'granted') {
+        console.log('Please grant background location permissions');
         return;
       }
 
       let currentLocation = await Location.getCurrentPositionAsync({});
       setUserLocation(currentLocation);
-      // console.log("Location:");
-      // console.log(currentLocation);
     };
+
     getPermissions();
   }, []);
 

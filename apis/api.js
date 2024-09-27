@@ -1,6 +1,6 @@
 import APIBase from "../api_base/apiBase";
 
-const BASE_API_URL = "https://uat-api.quickso.in/api";
+const BASE_API_URL = "http://192.168.0.114:1337/api";
 
 // Login API
 export const loginAPI = new APIBase({
