@@ -89,10 +89,10 @@ const LoginScreen = () => {
     try {
       setIsLoading(true);
 
-      if (!userLocation) {
-        Alert.alert("Error", "Please allow Location access.");
-        return;
-      }
+      // if (!userLocation) {
+      //   Alert.alert("Error", "Please allow Location access.");
+      //   return;
+      // }
       const clientUid = uuidv4();
 
       const submitData = {
