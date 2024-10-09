@@ -21,7 +21,7 @@
 //   },
 // });
 
-import './backgroundTask'; // Import the TaskManager setup
+// import './backgroundTask'; // Import the TaskManager setup
 import { Provider } from "react-redux";
 import { persistor, store } from "./app/store";
 import AppNavigator from "./app/AppNavigator";

@@ -12,10 +12,10 @@ import {
 import { projectsAPI } from "../../apis/api";
 import { commonStyles } from "../styles/styles";
 import { useSelector } from "react-redux";
-import { clearStorage } from "../utils";
+import { clearStorage, getDistanceBetweenPoints } from "../utils";
 import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
-import { v4 as uuidv4 } from "uuid";
+import * as Notifications from 'expo-notifications';
 
 const Projects = () => {
   const userData = useSelector((state) => state?.user); // Destructuring state for clarity
@@ -74,29 +74,12 @@ const Projects = () => {
       longitude
     );
 
-    console.log("Distance to project:", distance, "Radius:", radius);
+    console.log("Distance to project:", distance, "Radius:", 20);
 
-    if (distance > radius) {
+    if (distance > 20) {
       console.log("Out of bounds, sending checkout...");
       sendCheckout(currentCoords);
     }
-  };
-
-  // Function to calculate distance between two points using the Haversine formula
-  const getDistanceBetweenPoints = (lat1, lon1, lat2, lon2) => {
-    // Haversine formula implementation
-    const R = 6371e3; // Earth radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
   };
 
   // Function to send attendance to API
@@ -128,6 +111,13 @@ const Projects = () => {
           longitude: data?.project?.location?.longitude,
           radius: data?.project?.location?.radius,
         });
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Checked In Successfully',
+          },
+          trigger: null,
+        });
       }
     } catch (error) {
       console.error('Error sending attendance:', error);
@@ -156,10 +146,16 @@ const Projects = () => {
       );
 
       const data = await response.json();
-      console.log('Checkout Response:', data);
 
       if (data?.success) {
         setCheckedInProject(null); // Reset project
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Checked Out Successfully',
+          },
+          trigger: null,
+        });
       }
     } catch (error) {
       console.error('Error sending checkout:', error);

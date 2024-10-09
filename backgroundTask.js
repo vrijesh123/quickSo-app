@@ -1,204 +1,150 @@
 import * as TaskManager from 'expo-task-manager';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { attendanceAPI } from './apis/api';
-import { Log } from 'expo';
+import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
-import { v4 as uuidv4 } from "uuid";
+import { getDistanceBetweenPoints } from './app/utils';
 
 const LOCATION_TASK_NAME = 'background-location-task';
-const GEOFENCE_RADIUS_METERS = 15;
 
-// This object will keep track of the user's entry times by project ID
-let entryTimes = {};
+let checkedInProject = null; // Store checked-in project
+let userData = null; // Store user data globally if needed
 
+// Registering background task for location tracking
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 
     await Notifications.scheduleNotificationAsync({
         content: {
             title: 'Background Task Running',
-            body: 'Location updated!',
+            body: `Location updated! ${data}`,
         },
         trigger: null,
     });
 
     if (error) {
-        console.log('geoooo errrrr', error);
+        console.error('Location Task Error:', error);
         return;
     }
-    if (data && data.locations && data.locations.length > 0) {
-        const { locations } = data;
-        const currentLocation = locations[0];
 
-        // Retrieve the stored projects from AsyncStorage
-        const projects = JSON.parse(await AsyncStorage.getItem('projects') || '[]');
-        if (Array.isArray(projects) && projects.length > 0) {
-            projects.forEach(project => {
-                const { latitude, longitude } = project.location.data.attributes.coordinates[0];
-                const distance = getDistanceFromLatLonInMeters(
-                    18.9612344,
-                    72.8236589,
-                    18.9612344,
-                    72.8236589
+    if (data) {
+        const { locations } = data;
+        const location = locations[0]; // Get the latest location
+
+        if (location) {
+            const currentCoords = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+            };
+
+            if (!checkedInProject) {
+                // If not checked in, send attendance
+                await sendAttendance(currentCoords);
+            } else {
+                // Check proximity to project
+                const { latitude, longitude, radius } = checkedInProject;
+                const distance = getDistanceBetweenPoints(
+                    currentCoords.latitude,
+                    currentCoords.longitude,
+                    latitude,
+                    longitude
                 );
 
-                const projectId = project.id;
-                const currentTime = new Date();
-
-                if (distance <= GEOFENCE_RADIUS_METERS) {
-                    // User is within the geofence area
-                    if (!entryTimes[projectId]) {
-                        // User just entered the geofence
-                        entryTimes[projectId] = currentTime;
-                        console.log(`User entered project ${project.name} at ${entryTimes[projectId]}`);
-                    }
-                } else {
-                    // User is outside the geofence area
-                    if (entryTimes[projectId]) {
-                        // User just exited the geofence
-                        const inTime = entryTimes[projectId];
-                        const outTime = currentTime;
-
-                        // Trigger the exit event
-                        triggerGeofenceEvent(project, inTime, outTime);
-
-                        // Remove the entry time for this project
-                        delete entryTimes[projectId];
-                    }
+                if (distance > radius) {
+                    // If outside project radius, send checkout
+                    await sendCheckout(currentCoords);
                 }
-            });
+            }
         }
     }
 });
 
-const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3; // Radius of the Earth in meters
-    const φ1 = lat1 * (Math.PI / 180);
-    const φ2 = lat2 * (Math.PI / 180);
-    const Δφ = (lat2 - lat1) * (Math.PI / 180);
-    const Δλ = (lon2 - lon1) * (Math.PI / 180);
-
-    const a =
-        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    const distance = R * c; // Distance in meters
-    return distance;
-};
-
-// const triggerGeofenceEvent = async (project, inTime, outTime) => {
-//     try {
-//         const response = await attendanceAPI.post('', {
-//             project_id: project.id,
-//             location: project.location.data.id,
-//             in_time: inTime.toISOString(),
-//             out_time: outTime.toISOString(),
-//         });
-
-//         console.log(`Geofence event for project ${project.name}: In at ${inTime}, Out at ${outTime}`);
-//         console.log('API response:', response);
-//     } catch (error) {
-//         console.error('Error triggering geofence event:', error);
-
-//         // Retry mechanism for failed API requests
-//         setTimeout(() => {
-//             triggerGeofenceEvent(project, inTime, outTime);
-//         }, 5000);  // Retry after 5 seconds
-//     }
-// };
-
-const triggerGeofenceEvent = async (project, inTime, outTime) => {
-    try {
-        const response = await fetch('https://uat-api.quickso.in/api/attendances/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // Include any necessary headers, such as authorization tokens
-            },
-            body: JSON.stringify({
-                "attendance_type": 1,
-                "location": 4,
-                "shift": 1,
-                "date": "2024-09-24T09:45:56.095Z",
-                "employee": 28,
-                "in_time": "02:00:00.835",
-                "out_time": "06:00:00.992",
-                "description": "",
-                "uid": uuidv4()
-            }),
+// Start location tracking in the background
+export const startBackgroundLocationTracking = async () => {
+    const { status } = await Location.requestBackgroundPermissionsAsync();
+    if (status === 'granted') {
+        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 1, // Update every 1 meter
+            timeInterval: 500,   // Update every 500ms
         });
-
-        const data = await response.json();
-        console.log(`Geofence event for project ${project.name}:`, data);
-    } catch (error) {
-        console.error('Error triggering geofence event:', error);
+    } else {
+        console.error('Background location permission not granted');
     }
 };
 
+// Function to send attendance to API
+const sendAttendance = async (currentCoords) => {
+    try {
+        const response = await fetch(
+            'https://uat-api.quickso.in/api/attendance-checkin/',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    uid: userData?.uid,
+                    latitude: currentCoords.latitude,
+                    longitude: currentCoords.longitude,
+                }),
+            }
+        );
 
-// import * as TaskManager from 'expo-task-manager';
-// import * as FileSystem from 'expo-file-system';
+        const data = await response.json();
+        if (data?.check_in) {
+            console.log('Check-in successful');
+            checkedInProject = {
+                id: data?.project?.id,
+                latitude: data?.project?.location?.latitude,
+                longitude: data?.project?.location?.longitude,
+                radius: data?.project?.location?.radius,
+            };
 
-// const LOCATION_TASK_NAME = 'background-location-task';
-// const GEOFENCE_RADIUS_METERS = 10;
-// const ENTRY_TIMES_FILE = `${FileSystem.documentDirectory}entryTimes.json`;
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: 'Checked In Successfully',
+                    body: 'checkin',
+                },
+                trigger: null,
+            });
+        }
+    } catch (error) {
+        console.error('Error sending attendance:', error);
+    }
+};
 
-// TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
-//   if (error) {
-//     console.error('Location task error:', error);
-//     return;
-//   }
-//   if (data) {
-//     const { locations, projectData } = data;
-//     if (locations && locations.length > 0) {
-//       const currentLocation = locations[0];
-//       const entryTimes = await loadEntryTimes();
+// Function to send checkout request to API when user leaves project area
+const sendCheckout = async (currentCoords) => {
+    console.log('Sending checkout request...');
+    try {
+        const response = await fetch(
+            'https://uat-api.quickso.in/api/attendance-checkout',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    uid: userData?.uid,
+                    latitude: currentCoords.latitude,
+                    longitude: currentCoords.longitude,
+                    check_out: true,
+                    out_time: new Date().toTimeString().split(' ')[0],
+                }),
+            }
+        );
 
-//       for (const project of projectData) {
-//         const { latitude, longitude } = project.location.data.attributes.coordinates[0];
-//         const distance = getDistanceFromLatLonInMeters(
-//           currentLocation.coords.latitude,
-//           currentLocation.coords.longitude,
-//           latitude,
-//           longitude
-//         );
+        const data = await response.json();
+        if (data?.success) {
+            checkedInProject = null; // Reset project
 
-//         const projectId = project.id;
-//         const currentTime = new Date();
-
-//         if (distance <= GEOFENCE_RADIUS_METERS) {
-//           if (!entryTimes[projectId]) {
-//             entryTimes[projectId] = currentTime;
-//             await saveEntryTimes(entryTimes);
-//             console.log(`User entered project ${project.name} at ${currentTime}`);
-//           }
-//         } else {
-//           if (entryTimes[projectId]) {
-//             const inTime = entryTimes[projectId];
-//             const outTime = currentTime;
-//             await triggerGeofenceEvent(project, inTime, outTime);
-//             delete entryTimes[projectId];
-//             await saveEntryTimes(entryTimes);
-//           }
-//         }
-//       }
-//     }
-//   }
-// });
-
-// const loadEntryTimes = async () => {
-//   try {
-//     const data = await FileSystem.readAsStringAsync(ENTRY_TIMES_FILE);
-//     return JSON.parse(data);
-//   } catch (error) {
-//     return {};
-//   }
-// };
-
-// const saveEntryTimes = async (entryTimes) => {
-//   await FileSystem.writeAsStringAsync(ENTRY_TIMES_FILE, JSON.stringify(entryTimes));
-// };
-
-
-
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: 'Checked Out Successfully',
+                    body: 'checkout',
+                },
+                trigger: null,
+            });
+        }
+    } catch (error) {
+        console.error('Error sending checkout:', error);
+    }
+};
