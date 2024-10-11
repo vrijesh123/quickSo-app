@@ -18,7 +18,7 @@ import * as Location from "expo-location";
 import * as Notifications from 'expo-notifications';
 
 const Projects = () => {
-  const userData = useSelector((state) => state?.user); // Destructuring state for clarity
+  const userData = useSelector((state) => state?.user);
   const navigation = useNavigation();
 
   const [data, setData] = useState([]);
@@ -28,9 +28,12 @@ const Projects = () => {
   const [trackingActive, setTrackingActive] = useState(true);
 
   useEffect(() => {
+    // Start both tracking modes on component mount
     startForegroundLocationTracking();
+    startBackgroundLocationTracking();
 
     return () => {
+      // Clean up subscription on unmount
       if (locationSubscription) {
         locationSubscription.remove();
       }
@@ -39,29 +42,53 @@ const Projects = () => {
 
   useEffect(() => {
     if (currentCoords) {
-      // Trigger proximity check when coordinates or project data updates
-      checkProximity(currentCoords);
+      checkProximity(currentCoords); // Check proximity when location changes
     }
-  }, [currentCoords, checkedInProject]); // Check proximity only when the state updates
+  }, [currentCoords, checkedInProject]);
 
   const startForegroundLocationTracking = async () => {
-    const subscription = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 500,
-        distanceInterval: 1,
-      },
-      (location) => {
-        setCurrentCoords(location.coords); // Update coordinates state
-      }
-    );
-    setLocationSubscription(subscription);
+    try {
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 500,
+          distanceInterval: 1,
+        },
+        (location) => {
+          setCurrentCoords(location.coords); // Update location state
+        }
+      );
+      setLocationSubscription(subscription);
+    } catch (error) {
+      console.error('Error starting foreground location tracking:', error);
+    }
   };
 
-  // Function to check proximity with project location
+  const startBackgroundLocationTracking = async () => {
+    const { status } = await Location.requestBackgroundPermissionsAsync();
+    if (status === "granted") {
+      try {
+        await Location.startLocationUpdatesAsync("LOCATION_TASK_NAME", {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 1,
+          deferredUpdatesIntervalMillis: 1000,
+          foregroundService: {
+            notificationTitle: "QuickSo is using your location",
+            notificationBody: "Tracking your location in the background.",
+            notificationColor: "#FF0000",
+          },
+          showsBackgroundLocationIndicator: true,
+        });
+      } catch (error) {
+        console.error('Error starting background location tracking:', error);
+      }
+    } else {
+      Alert.alert("Permission required", "Background location permission is required.");
+    }
+  };
+
   const checkProximity = (currentCoords) => {
     if (!checkedInProject) {
-      console.log("No checked in project, sending attendance...");
       sendAttendance(currentCoords);
       return;
     }
@@ -74,15 +101,11 @@ const Projects = () => {
       longitude
     );
 
-    console.log("Distance to project:", distance, "Radius:", 20);
-
-    if (distance > 20) {
-      console.log("Out of bounds, sending checkout...");
+    if (distance > radius) {
       sendCheckout(currentCoords);
     }
   };
 
-  // Function to send attendance to API
   const sendAttendance = async (currentCoords) => {
     try {
       const response = await fetch(
@@ -101,10 +124,8 @@ const Projects = () => {
       );
 
       const data = await response.json();
-      console.log('API Response:', data);
 
       if (data?.check_in) {
-        console.log('Check-in successful');
         setCheckedInProject({
           id: data?.project?.id,
           latitude: data?.project?.location?.latitude,
@@ -124,9 +145,7 @@ const Projects = () => {
     }
   };
 
-  // Function to send checkout request to API when user leaves project area
   const sendCheckout = async (currentCoords) => {
-    console.log('Sending checkout request...');
     try {
       const response = await fetch(
         'https://uat-api.quickso.in/api/attendance-checkout',
@@ -148,7 +167,7 @@ const Projects = () => {
       const data = await response.json();
 
       if (data?.success) {
-        setCheckedInProject(null); // Reset project
+        setCheckedInProject(null); // Reset checked-in project state
 
         await Notifications.scheduleNotificationAsync({
           content: {
@@ -171,11 +190,11 @@ const Projects = () => {
         location: data?.attributes?.location,
       }));
 
-      setData(project_data || []); // Handling possible undefined values
+      setData(project_data || []);
     } catch (error) {
-      console.error("Failed to fetch projects:", error); // Better error handling
+      console.error("Failed to fetch projects:", error);
     }
-  }, []); // Empty dependency array since there are no external dependencies
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -200,8 +219,7 @@ const Projects = () => {
     <SafeAreaView style={commonStyles.container}>
       <View style={styles.name}>
         <Text style={styles.userTitle}>
-          Welcome,{" "}
-          <Text style={styles.username}>{userData?.user?.username}</Text>
+          Welcome, <Text style={styles.username}>{userData?.user?.username}</Text>
         </Text>
         <Text style={styles.heading}>Current Location:</Text>
         {currentCoords ? (
@@ -218,7 +236,7 @@ const Projects = () => {
       <FlatList
         data={data}
         renderItem={renderItem}
-        keyExtractor={(item) => item?.id.toString()} // Ensure key is a string
+        keyExtractor={(item) => item?.id.toString()}
         contentContainerStyle={styles.listContent}
       />
     </SafeAreaView>
@@ -238,7 +256,7 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
   username: {
-    fontWeight: "bold", // This will make the username bold
+    fontWeight: "bold",
   },
   item: {
     marginVertical: 5,
@@ -262,7 +280,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
   },
   listContent: {
-    paddingBottom: 20, // Adding some padding at the bottom
+    paddingBottom: 20,
   },
 });
 

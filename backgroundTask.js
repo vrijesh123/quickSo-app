@@ -2,6 +2,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { getDistanceBetweenPoints } from './app/utils';
+import { Platform } from 'react-native';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 
@@ -64,6 +65,10 @@ export const startBackgroundLocationTracking = async () => {
             accuracy: Location.Accuracy.High,
             distanceInterval: 1, // Update every 1 meter
             timeInterval: 500,   // Update every 500ms
+            foregroundService: Platform.OS === 'android' ? {
+                notificationTitle: 'Location Tracking Active',
+                notificationBody: 'Tracking your location for attendance.',
+            } : undefined,
         });
     } else {
         console.error('Background location permission not granted');
