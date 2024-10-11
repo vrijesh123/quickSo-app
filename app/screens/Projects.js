@@ -16,6 +16,7 @@ import { clearStorage, getDistanceBetweenPoints } from "../utils";
 import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Projects = () => {
   const userData = useSelector((state) => state?.user);
@@ -24,8 +25,11 @@ const Projects = () => {
   const [data, setData] = useState([]);
   const [locationSubscription, setLocationSubscription] = useState(null);
   const [currentCoords, setCurrentCoords] = useState(null);
-  const [checkedInProject, setCheckedInProject] = useState(null);
-  const [trackingActive, setTrackingActive] = useState(true);
+  // const [checkedInProject, setCheckedInProject] = useState(null);
+
+  let checkedInProject = null;
+  const LOCATION_TASK_NAME = 'background-location-task';
+
 
   useEffect(() => {
     // Start both tracking modes on component mount
@@ -68,8 +72,9 @@ const Projects = () => {
     const { status } = await Location.requestBackgroundPermissionsAsync();
     if (status === "granted") {
       try {
-        await Location.startLocationUpdatesAsync("LOCATION_TASK_NAME", {
+        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
           accuracy: Location.Accuracy.High,
+          timeInterval: 500,
           distanceInterval: 1,
           deferredUpdatesIntervalMillis: 1000,
           foregroundService: {
@@ -87,7 +92,14 @@ const Projects = () => {
     }
   };
 
-  const checkProximity = (currentCoords) => {
+  const checkProximity = async (currentCoords) => {
+    const checkedInProjectString = await AsyncStorage.getItem('checkedInProject');
+    if (checkedInProjectString) {
+      checkedInProject = JSON.parse(checkedInProjectString);
+    }
+
+    console.log('checkedInProject', checkedInProject)
+
     if (!checkedInProject) {
       sendAttendance(currentCoords);
       return;
@@ -101,12 +113,17 @@ const Projects = () => {
       longitude
     );
 
+    console.log('radiusssss', distance, radius)
+
     if (distance > radius) {
       sendCheckout(currentCoords);
     }
   };
 
   const sendAttendance = async (currentCoords) => {
+    const userDataString = await AsyncStorage.getItem('userData');
+    const userData = JSON.parse(userDataString);
+
     try {
       const response = await fetch(
         'https://uat-api.quickso.in/api/attendance-checkin/',
@@ -116,7 +133,7 @@ const Projects = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            uid: userData?.user?.uid,
+            uid: userData?.uid,
             latitude: currentCoords.latitude,
             longitude: currentCoords.longitude,
           }),
@@ -124,18 +141,24 @@ const Projects = () => {
       );
 
       const data = await response.json();
+      console.log('check in sucesss', data)
+
 
       if (data?.check_in) {
-        setCheckedInProject({
+        checkedInProject = {
           id: data?.project?.id,
           latitude: data?.project?.location?.latitude,
           longitude: data?.project?.location?.longitude,
           radius: data?.project?.location?.radius,
-        });
+        };
+
+        // Store checkedInProject in AsyncStorage
+        await AsyncStorage.setItem('checkedInProject', JSON.stringify(checkedInProject));
 
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'Checked In Successfully',
+            title: 'Checked In',
+            body: 'checkin',
           },
           trigger: null,
         });
@@ -146,6 +169,8 @@ const Projects = () => {
   };
 
   const sendCheckout = async (currentCoords) => {
+    const userDataString = await AsyncStorage.getItem('userData');
+    const userData = JSON.parse(userDataString);
     try {
       const response = await fetch(
         'https://uat-api.quickso.in/api/attendance-checkout',
@@ -155,7 +180,7 @@ const Projects = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            uid: userData?.user?.uid,
+            uid: userData?.uid,
             latitude: currentCoords.latitude,
             longitude: currentCoords.longitude,
             check_out: true,
@@ -166,12 +191,17 @@ const Projects = () => {
 
       const data = await response.json();
 
+      console.log('checkoutttttttt', data)
+
+
       if (data?.success) {
-        setCheckedInProject(null); // Reset checked-in project state
+        // setCheckedInProject(null); // Reset checked-in project state
+        await AsyncStorage.removeItem('checkedInProject');
 
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'Checked Out Successfully',
+            title: 'Checked Out',
+            body: 'checkout',
           },
           trigger: null,
         });

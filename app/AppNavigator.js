@@ -12,6 +12,7 @@ import DailyAttendance from "./screens/DailyAttendance";
 import { logoutAPI } from "../apis/api";
 import { logoutUser } from "./reducers/userSlice";
 import Toast from "react-native-toast-message";
+import * as Location from 'expo-location';
 
 const Drawer = createDrawerNavigator();
 
@@ -71,6 +72,7 @@ export default function AppNavigator() {
 const CustomDrawerContent = (props) => {
     const dispatch = useDispatch();
     const userData = useSelector((state) => state?.user); // Destructuring state for clarity
+    const LOCATION_TASK_NAME = 'background-location-task';
 
     const handleLogout = async () => {
         try {
@@ -84,6 +86,11 @@ const CustomDrawerContent = (props) => {
 
             // Clear AsyncStorage
             await AsyncStorage.clear();
+            // await AsyncStorage.removeItem('userData');
+            // await AsyncStorage.removeItem('checkedInProject');
+
+            // // Stop background location tracking
+            // await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
 
             // Show a toast message for successful logout
             Toast.show({

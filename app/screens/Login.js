@@ -65,7 +65,7 @@ const LoginScreen = () => {
           // deferredUpdatesInterval: 1000, // in milliseconds
           deferredUpdatesIntervalMillis: 1000,
           foregroundService: {
-            notificationTitle: "QuickSo is using your location",
+            notificationTitle: "Tracking Location",
             notificationBody:
               "Your location is being used to track your attendance.",
             notificationColor: "#FF0000", // Optional: Change the notification color
@@ -119,7 +119,7 @@ const LoginScreen = () => {
 
         // Save the token to local storage
         await AsyncStorage.setItem("userToken", token);
-        await AsyncStorage.setItem("userData", res?.data?.user?.username);
+        await AsyncStorage.setItem('userData', JSON.stringify(res?.data?.user));
 
         dispatch(setClientUid(clientUid));
         dispatch(
@@ -131,8 +131,8 @@ const LoginScreen = () => {
         );
 
         // Fetch projects and start background tracking after login
-        await fetchData();
-        await startBackgroundLocationTracking();
+        // await fetchData();
+        // await startBackgroundLocationTracking();
 
         Alert.alert("Success", "Logged in successfully!", [
           {

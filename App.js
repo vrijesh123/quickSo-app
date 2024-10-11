@@ -21,7 +21,8 @@
 //   },
 // });
 
-import './backgroundTask'; // Import the TaskManager setup
+import './backgroundTask.js'; // Import the TaskManager setup
+import React, { useEffect } from "react";
 import { Provider } from "react-redux";
 import { persistor, store } from "./app/store";
 import AppNavigator from "./app/AppNavigator";
@@ -29,6 +30,7 @@ import AppLoading from "expo-app-loading";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter'; // import the font variants you need
 import { PersistGate } from "redux-persist/integration/react";
 import Toast from 'react-native-toast-message';
+import { startBackgroundLocationTracking } from './backgroundTask.js';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -36,6 +38,13 @@ export default function App() {
     Inter_500Medium,
     Inter_600SemiBold,
   });
+
+  // Move the useEffect Hook before the return statement
+  useEffect(() => {
+    if (fontsLoaded) {
+      startBackgroundLocationTracking();
+    }
+  }, [fontsLoaded]); // Add fontsLoaded to the dependency array
 
   if (!fontsLoaded) {
     return <AppLoading />;
@@ -50,3 +59,4 @@ export default function App() {
     </Provider>
   );
 }
+
